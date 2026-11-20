@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIPEKA - Sistem Informasi Piket Kelas</title>
+    <!-- Memuat Tailwind CSS untuk tata letak responsif dan estetika modern -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Font Inter dari Google Fonts agar tipografi bersih dan mudah dibaca -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        pastelBlue: '#E8EEF9',
+                        pastelBlueText: '#1E3A8A',
+                        pastelMint: '#E3F3E8',
+                        pastelMintHover: '#D1EAD9',
+                        pastelMintText: '#166534',
+                        pastelPeach: '#FDE8E2',
+                        pastelPeachText: '#9A3412',
+                        pastelAmber: '#FEF3C7',
+                        pastelAmberText: '#92400E',
+                        appBg: '#F8FAFC',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Animasi transisi halus untuk pergantian tab dan notifikasi */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.25s ease-out forwards;
+        }
+        /* Animasi getar halus saat password admin salah */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .animate-shake {
+            animation: shake 0.35s ease-in-out;
+        }
+        /* Kustomisasi scrollbar agar tetap rapi */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 9999px;
+        }
+
+        /* CSS Khusus Cetak / Simpan Laporan ke PDF (@media print) */
+        @media print {
+            body {
+                background-color: #FFFFFF !important;
+                color: #0F172A !important;
+                font-size: 11pt !important;
+            }
+            .no-print, nav, footer, #toastContainer, #customModal, #adminLoginModal, #changePasswordModal, #editRiwayatModal, #roleBar, #mainHeader, #view-beranda, #view-jadwal {
+                display: none !important;
+            }
+            #mainContainer {
+                max-width: 100% !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            #view-riwayat {
+                display: block !important;
+            }
+            #riwayatCardWrapper {
+                box-shadow: none !important;
+                border: none !important;
+                padding: 0 !important;
+            }
+            #printHeaderKop, #printSignatureSection {
+                display: block !important;
+            }
+            #printSignatureSection {
+                display: grid !important;
+            }
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            th, td {
+                border: 1px solid #94A3B8 !important;
+                padding: 8px 10px !important;
+                font-size: 10pt !important;
+            }
+            th {
+                background-color: #E8EEF9 !important;
+                color: #1E3A8A !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .print-badge {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body class="bg-appBg text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Notifikasi / Umpan Balik Pengguna (Menggantikan alert() standar) -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full px-4 sm:px-0 pointer-events-none"></div>
+
+    <!-- Kontainer Utama Aplikasi -->
+    <div id="mainContainer" class="max-w-4xl w-full mx-auto px-4 py-6 sm:py-8 flex-grow">
+
+        <!-- Baris Kontrol Peran Pengguna (Mitigasi Risiko LKPD 1: Autentikasi Mode Admin) -->
+        <div id="roleBar" class="no-print flex flex-wrap items-center justify-between gap-3 mb-4 bg-white border border-slate-200/80 rounded-2xl px-4 py-2.5 shadow-sm">
+            <div class="flex items-center gap-2 text-xs sm:text-sm text-slate-600">
+                <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                <span>Kelas <strong>XII Reguler 7</strong> &bull; Kelompok 3</span>
+            </div>
+            
+            <!-- Status Peran Aktif & Tombol Login / Keluar Admin -->
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Tampilan saat Mode Siswa (Default) -->
+                <div id="studentRoleControls" class="flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/80">
+                        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <span>Mode Siswa</span>
+                    </span>
+                    <button type="button" onclick="bukaModalLoginAdmin()" 
+                        class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-pastelBlue hover:bg-blue-200/80 text-pastelBlueText border border-blue-200 transition-all shadow-2xs">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        <span>Masuk Mode Admin</span>
+                    </button>
+                </div>
+
+                <!-- Tampilan saat Sudah Login Mode Admin (Ketua Kelas) -->
+                <div id="adminRoleControls" class="hidden flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-pastelMint text-pastelMintText border border-emerald-200">
+                        <svg class="w-3.5 h-3.5 text-emerald-700" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                        <span>Mode Admin (Ketua Kelas)</span>
+                    </span>
+                    <button type="button" onclick="bukaModalUbahPassword()" 
+                        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                        </svg>
+                        <span>Ubah Password</span>
+                    </button>
+                    <button type="button" onclick="logoutAdmin()" 
+                        class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span>Keluar Admin</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header Utama Sesuai Wireframe LKPD 2 -->
+        <header id="mainHeader" class="no-print bg-pastelBlue rounded-2xl px-6 py-7 text-center shadow-sm border border-blue-100 mb-6">
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-pastelBlueText">SIPEKA</h1>
+            <p class="text-sm sm:text-base font-medium text-slate-700 mt-1.5">Sistem Informasi Piket Kelas</p>
+        </header>
+
+        <!-- Navigasi Utama (3 Layar Rancangan Wireframe LKPD 2) -->
+        <nav aria-label="Menu Utama" class="no-print grid grid-cols-3 gap-2 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm mb-6">
+            <button type="button" id="tab-beranda" onclick="switchTab('beranda')" 
+                class="tab-btn flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-pastelBlue text-pastelBlueText">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                </svg>
+                <span>Piket Hari Ini</span>
+            </button>
+            <button type="button" id="tab-jadwal" onclick="switchTab('jadwal')" 
+                class="tab-btn flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <span>Jadwal Piket</span>
+            </button>
+            <button type="button" id="tab-riwayat" onclick="switchTab('riwayat')" 
+                class="tab-btn flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
+                <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <span>Riwayat & Rekap</span>
+            </button>
+        </nav>
+
+        <!-- =====================================================================
+             LAYAR 1: BERANDA & PIKET HARI INI (Sesuai Sketsa Utama Wireframe)
+             ===================================================================== -->
+        <main id="view-beranda" class="view-section animate-fade-in space-y-5">
+            
+            <!-- Pemilih Hari Piket -->
+            <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Pilih Hari Piket</span>
+                    <p class="text-xs text-slate-500">Lihat petugas dan perbarui status tugas kebersihan</p>
+                </div>
+                <div class="flex flex-wrap gap-1.5" id="daySelectorButtons">
+                    <!-- Tombol hari Senin - Jumat dirender oleh JavaScript -->
+                </div>
+            </div>
+
+            <!-- Kartu 1: Jadwal Piket Hari Ini (Sesuai Wireframe Halaman 6 LKPD 2) -->
+            <section class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+                <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Jadwal Piket Hari Ini</h2>
+                        <p id="displayTanggal" class="text-sm text-slate-500 mt-1">Senin, 3 November 2026</p>
+                    </div>
+                    <span id="badgeStatusHari" class="px-3 py-1 rounded-full text-xs font-semibold bg-pastelPeach text-pastelPeachText">
+                        Belum Piket
+                    </span>
+                </div>
+
+                <!-- Daftar Nama Petugas Piket -->
+                <div class="mt-4">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2.5">Petugas Piket Bertugas:</p>
+                    <ul id="listPetugasHariIni" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <!-- Daftar petugas dirender di sini -->
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Kartu 2: Daftar Tugas Kebersihan (Sesuai Wireframe Halaman 6 LKPD 2) -->
+            <section class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Daftar Tugas</h2>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Centang tugas yang sudah dikerjakan oleh petugas</p>
+                    </div>
+                    <span id="progressCounter" class="text-xs font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
+                        0 / 4 Selesai
+                    </span>
+                </div>
+
+                <!-- Checklist Tugas Interaktif -->
+                <div id="listTugasHariIni" class="space-y-2.5 mb-5">
+                    <!-- Daftar tugas dirender di sini -->
+                </div>
+
+                <!-- Input Keterangan / Catatan Tambahan (Tersedia untuk Siswa & Ketua Kelas sesuai Struktur Data LKPD 2) -->
+                <div class="mb-5 p-4 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <label for="inputKeterangan" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Keterangan / Catatan Pelaksanaan Piket (Opsional):
+                    </label>
+                    <input type="text" id="inputKeterangan" placeholder="Contoh: Kelas bersih, sampah sudah dibuang ke TPS, semua hadir..." 
+                        class="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <!-- Tombol Utama Sesuai Wireframe: "Tandai Tugas Selesai" -->
+                <div class="flex flex-col sm:flex-row items-center justify-end gap-3">
+                    <button type="button" onclick="resetTugasHariIni()" 
+                        class="w-full sm:w-auto px-4 py-3 rounded-xl text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        Ulangi Status
+                    </button>
+                    <button type="button" id="btnTandaiSelesai" onclick="tandaiSemuaSelesai()" 
+                        class="w-full sm:w-auto px-7 py-3.5 rounded-2xl text-base font-bold bg-pastelMint hover:bg-pastelMintHover text-pastelMintText shadow-sm border border-emerald-200/80 transition-all active:scale-[0.99] flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span>Tandai Tugas Selesai</span>
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- =====================================================================
+             LAYAR 2: JADWAL PIKET MINGGUAN & KELOLA DATA (Ketua Kelas)
+             ===================================================================== -->
+        <section id="view-jadwal" class="view-section hidden animate-fade-in space-y-5">
+            
+            <!-- Banner Informasi Akses Peran Siswa (Terkunci untuk Pengubahan Jadwal) -->
+            <div id="infoAksesSiswa" class="bg-blue-50 border border-blue-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    <div class="text-xs sm:text-sm text-blue-900">
+                        <p class="font-semibold">Pengaturan Jadwal Terkunci (Mode Siswa)</p>
+                        <p class="text-blue-700 mt-0.5">Untuk mencegah perubahan data jadwal sembarangan, hanya <strong>Admin (Ketua Kelas)</strong> yang dapat menambah atau mengubah daftar petugas &amp; tugas piket.</p>
+                    </div>
+                </div>
+                <button type="button" onclick="bukaModalLoginAdmin()" 
+                    class="shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-2xs transition-colors">
+                    Masuk Mode Admin
+                </button>
+            </div>
+
+            <!-- Form Pengelolaan Jadwal (Hanya aktif setelah Login Mode Admin) -->
+            <div id="panelKelolaJadwal" class="hidden bg-white rounded-2xl p-6 border border-emerald-200 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-pastelMint text-pastelMintText uppercase">Akses Admin (Ketua Kelas)</span>
+                        <h2 class="text-lg font-bold text-slate-900 mt-1">Atur Jadwal & Petugas Piket</h2>
+                    </div>
+                </div>
+
+                <form id="formEditJadwal" onsubmit="simpanPerubahanJadwal(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="editHari" class="block text-xs font-semibold text-slate-700 mb-1">Pilih Hari <span class="text-red-500">*</span></label>
+                            <select id="editHari" onchange="muatDataFormEdit()" class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="Senin">Senin</option>
+                                <option value="Selasa">Selasa</option>
+                                <option value="Rabu">Rabu</option>
+                                <option value="Kamis">Kamis</option>
+                                <option value="Jumat">Jumat</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="editTanggal" class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Piket <span class="text-red-500">*</span></label>
+                            <input type="text" id="editTanggal" placeholder="Contoh: Senin, 3 November 2026" 
+                                class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="editPetugas" class="block text-xs font-semibold text-slate-700 mb-1">
+                            Daftar Nama Petugas (pisahkan dengan koma) <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" id="editPetugas" placeholder="Contoh: Andi, Budi, Siti, Rina" 
+                            class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-[11px] text-slate-400 mt-1">Minimal 1 nama siswa wajib diisi.</p>
+                    </div>
+
+                    <div>
+                        <label for="editTugas" class="block text-xs font-semibold text-slate-700 mb-1">
+                            Daftar Tugas Kebersihan (pisahkan dengan koma) <span class="text-red-500">*</span>
+                        </label>
+                        <textarea id="editTugas" rows="2" placeholder="Contoh: Menyapu kelas, Menghapus papan tulis, Merapikan meja dan kursi, Membuang sampah" 
+                            class="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+
+                    <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                        <button type="button" onclick="konfirmasiResetData()" class="text-xs font-medium text-red-600 hover:text-red-800 underline">
+                            Kembalikan Data Awal Contoh
+                        </button>
+                        <button type="submit" class="px-5 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors">
+                            Simpan Perubahan Jadwal
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Daftar Kartu Jadwal Mingguan (Senin - Jumat) -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+                <div class="mb-4">
+                    <h2 class="text-xl font-bold text-slate-900">Jadwal Piket Mingguan</h2>
+                    <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Daftar lengkap petugas kebersihan kelas XII Reguler 7</p>
+                </div>
+
+                <div id="gridJadwalMingguan" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Kartu jadwal Senin-Jumat dirender oleh JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- =====================================================================
+             LAYAR 3: RIWAYAT & REKAP PIKET MINGGUAN (LAPORAN KE GURU)
+             ===================================================================== -->
+        <section id="view-riwayat" class="view-section hidden animate-fade-in space-y-5">
+            <div id="riwayatCardWrapper" class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-sm space-y-6">
+                
+                <!-- KOP LAPORAN (Hanya muncul saat dicetak / Simpan PDF) -->
+                <div id="printHeaderKop" class="hidden border-b-2 border-slate-800 pb-4 mb-4 text-center">
+                    <h1 class="text-xl font-bold uppercase tracking-wide text-slate-900">LAPORAN REKAPITULASI PIKET KEBERSIHAN KELAS</h1>
+                    <h2 class="text-base font-semibold text-slate-800 mt-0.5">SIPEKA (Sistem Informasi Piket Kelas) &mdash; KELAS XII REGULER 7</h2>
+                    <p id="printSubtitlePeriode" class="text-xs text-slate-600 mt-1">Periode Laporan: Minggu Ini (November 2026)</p>
+                </div>
+
+                <!-- Header Layar Riwayat & Tombol Aksi Laporan -->
+                <div class="no-print flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                    <div>
+                        <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-pastelBlue text-pastelBlueText uppercase tracking-wide mb-1">
+                            Laporan ke Wali Kelas / Guru
+                        </span>
+                        <h2 class="text-xl font-bold text-slate-900">Riwayat & Rekap Piket Mingguan</h2>
+                        <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Rekapitulasi pelaksanaan tugas kebersihan harian per minggu</p>
+                    </div>
+
+                    <!-- Tombol Cetak PDF & Salin ke WhatsApp/Teks -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="button" onclick="salinRekapTeks()" 
+                            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-pastelMint hover:bg-pastelMintHover text-pastelMintText border border-emerald-200 transition-colors flex items-center gap-1.5">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                            </svg>
+                            <span>Salin Rekap ke WhatsApp/Teks</span>
+                        </button>
+                        <button type="button" onclick="cetakLaporanPDF()" 
+                            class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-pastelBlue hover:bg-blue-200/70 text-pastelBlueText border border-blue-200 transition-colors flex items-center gap-1.5">
+                            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                            </svg>
+                            <span>Cetak / Simpan Laporan (PDF)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Minggu & Filter Hari -->
+                <div class="no-print grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70">
+                    <div>
+                        <label for="filterMinggu" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                            Periode Minggu
+                        </label>
+                        <select id="filterMinggu" onchange="renderRiwayat()" 
+                            class="w-full px-3 py-2 text-xs sm:text-sm font-medium bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="Minggu Ini">Minggu Ini (3 – 7 Nov 2026)</option>
+                            <option value="Minggu Lalu">Minggu Lalu (26 – 30 Okt 2026)</option>
+                            <option value="Semua">Semua Minggu</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filterHari" class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">
+                            Filter Hari
+                        </label>
+                        <select id="filterHari" onchange="renderRiwayat()" 
+                            class="w-full px-3 py-2 text-xs sm:text-sm font-medium bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="Semua">Semua Hari (Senin – Jumat)</option>
+                            <option value="Senin">Senin</option>
+                            <option value="Selasa">Selasa</option>
+                            <option value="Rabu">Rabu</option>
+                            <option value="Kamis">Kamis</option>
+                            <option value="Jumat">Jumat</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end sm:col-span-2 lg:col-span-1">
+                        <button type="button" id="btnHapusRiwayat" onclick="resetRiwayatContoh()" 
+                            class="hidden w-full px-3 py-2 rounded-xl text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors">
+                            Reset Riwayat ke Data Awal
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Banner Info Hak Akses Admin di Tab Riwayat -->
+                <div id="adminRiwayatNotice" class="no-print hidden bg-emerald-50/80 border border-emerald-200 rounded-xl px-4 py-2.5 text-xs text-emerald-900 flex items-center justify-between gap-2">
+                    <span><strong>Mode Admin Aktif:</strong> Anda dapat mengedit status/catatan atau menghapus baris rekapitulasi mingguan pada kolom <em>Aksi Admin</em> di bawah.</span>
+                </div>
+
+                <!-- Ringkasan Statistik Mingguan (4 Kartu Ringkasan) -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="p-3.5 rounded-2xl bg-pastelBlue/60 border border-blue-100">
+                        <p class="text-[11px] font-semibold text-slate-500 uppercase">Hari Piket Tercatat</p>
+                        <p id="statHariTercatat" class="text-lg sm:text-xl font-bold text-pastelBlueText mt-1">0 Hari</p>
+                    </div>
+                    <div class="p-3.5 rounded-2xl bg-pastelMint/70 border border-emerald-100">
+                        <p class="text-[11px] font-semibold text-slate-500 uppercase">Total Tugas Selesai</p>
+                        <p id="statTugasSelesai" class="text-lg sm:text-xl font-bold text-pastelMintText mt-1">0 / 0</p>
+                    </div>
+                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                        <p class="text-[11px] font-semibold text-slate-500 uppercase">Kepatuhan Piket</p>
+                        <p id="statPersentase" class="text-lg sm:text-xl font-bold text-slate-800 mt-1">0%</p>
+                    </div>
+                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                        <p class="text-[11px] font-semibold text-slate-500 uppercase">Status Laporan</p>
+                        <p id="statStatusLaporan" class="text-sm sm:text-base font-bold text-emerald-700 mt-1.5">Siap Dilaporkan</p>
+                    </div>
+                </div>
+
+                <!-- Tabel Rekapitulasi Piket Mingguan (Laporan ke Guru) -->
+                <div class="overflow-x-auto rounded-2xl border border-slate-200">
+                    <table class="w-full text-left border-collapse min-w-[720px]">
+                        <thead>
+                            <tr class="bg-pastelBlue text-pastelBlueText text-xs uppercase tracking-wider border-b border-blue-200/80">
+                                <th class="py-3.5 px-3.5 font-bold w-14 text-center">No / ID</th>
+                                <th class="py-3.5 px-3.5 font-bold w-40">Hari & Tanggal</th>
+                                <th class="py-3.5 px-3.5 font-bold w-48">Petugas Piket</th>
+                                <th class="py-3.5 px-3.5 font-bold">Rincian Tugas & Checklist</th>
+                                <th class="py-3.5 px-3.5 font-bold w-32 text-center">Status Piket</th>
+                                <th class="py-3.5 px-3.5 font-bold w-48">Keterangan / Catatan</th>
+                                <th id="thAksiAdmin" class="no-print hidden py-3.5 px-3.5 font-bold w-28 text-center">Aksi Admin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelRekapBody" class="divide-y divide-slate-200/80 text-xs sm:text-sm bg-white">
+                            <!-- Baris tabel rekap mingguan dirender oleh JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Kolom Tanda Tangan Ketua Kelas & Wali Kelas (Hanya tampil saat Cetak / PDF) -->
+                <div id="printSignatureSection" class="hidden grid-cols-2 gap-8 pt-8 mt-6 text-xs text-slate-800">
+                    <div class="text-center">
+                        <p>Mengetahui,</p>
+                        <p class="font-semibold">Wali Kelas XII Reguler 7</p>
+                        <div class="h-16"></div>
+                        <p class="font-bold underline">( ............................................ )</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">NIP. ....................................</p>
+                    </div>
+                    <div class="text-center">
+                        <p>Citeureup, November 2026</p>
+                        <p class="font-semibold">Ketua Kelas XII Reguler 7</p>
+                        <div class="h-16"></div>
+                        <p class="font-bold underline">( ............................................ )</p>
+                        <p class="text-[11px] text-slate-500 mt-0.5">Kelompok 3 &bull; SIPEKA</p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Footer Aplikasi -->
+    <footer class="no-print max-w-4xl w-full mx-auto px-4 py-6 text-center text-xs text-slate-400">
+        <p><strong>SIPEKA</strong> &mdash; Sistem Informasi Piket Kelas</p>
+        <p class="mt-1">Proyek Pengembangan Aplikasi Informatika &bull; Kelompok 3 (XII Reguler 7)</p>
+    </footer>
+
+    <!-- Modal Konfirmasi Kustom (Pengganti confirm() standar) -->
+    <div id="customModal" class="no-print hidden fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-200 animate-fade-in">
+            <h3 id="modalTitle" class="text-lg font-bold text-slate-900">Konfirmasi</h3>
+            <p id="modalMessage" class="text-sm text-slate-600 mt-2">Apakah Anda yakin ingin melanjutkan tindakan ini?</p>
+            <div class="flex items-center justify-end gap-2.5 mt-6">
+                <button type="button" onclick="tutupModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                    Batal
+                </button>
+                <button type="button" id="modalConfirmBtn" class="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors">
+                    Ya, Lanjutkan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 1: LOGIN MODE ADMIN (KETUA KELAS)
+         ===================================================================== -->
+    <div id="adminLoginModal" class="no-print hidden fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center p-4">
+        <div id="adminLoginBox" class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-200 animate-fade-in">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-pastelBlue text-pastelBlueText flex items-center justify-center">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Masuk Mode Admin</h3>
+                        <p class="text-[11px] text-slate-500">Khusus Ketua Kelas XII Reguler 7</p>
+                    </div>
+                </div>
+                <button type="button" onclick="tutupModalLoginAdmin()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form onsubmit="prosesLoginAdmin(event)" class="space-y-4 mt-4">
+                <div>
+                    <label for="inputAdminPassword" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                        Masukkan Password Admin
+                    </label>
+                    <div class="relative">
+                        <input type="password" id="inputAdminPassword" autocomplete="current-password" placeholder="Masukkan kata sandi..." 
+                            class="w-full px-3.5 py-2.5 pr-10 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="button" onclick="toggleVisibilityPassword('inputAdminPassword')" title="Tampilkan/Sembunyikan Password"
+                            class="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Pesan Error jika Password Salah -->
+                    <p id="loginErrorMsg" class="hidden text-xs font-semibold text-red-600 mt-1.5 flex items-center gap-1">
+                        <span>&#9888;</span>
+                        <span>Password salah! Akses Mode Admin ditolak.</span>
+                    </p>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-1">
+                    <button type="button" onclick="tutupModalLoginAdmin()" 
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        Batal
+                    </button>
+                    <button type="submit" 
+                        class="px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors">
+                        Masuk Admin
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 2: UBAH PASSWORD ADMIN
+         ===================================================================== -->
+    <div id="changePasswordModal" class="no-print hidden fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl border border-slate-200 animate-fade-in">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-base font-bold text-slate-900">Ubah Password Admin</h3>
+                <button type="button" onclick="tutupModalUbahPassword()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form onsubmit="prosesUbahPassword(event)" class="space-y-3.5 mt-3">
+                <div>
+                    <label for="oldPasswordInput" class="block text-xs font-semibold text-slate-700 mb-1">Password Lama</label>
+                    <input type="password" id="oldPasswordInput" required placeholder="Masukkan password saat ini"
+                        class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="newPasswordInput" class="block text-xs font-semibold text-slate-700 mb-1">Password Baru (min. 4 karakter)</label>
+                    <input type="password" id="newPasswordInput" required minlength="4" placeholder="Masukkan password baru"
+                        class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="confirmNewPasswordInput" class="block text-xs font-semibold text-slate-700 mb-1">Konfirmasi Password Baru</label>
+                    <input type="password" id="confirmNewPasswordInput" required minlength="4" placeholder="Ulangi password baru"
+                        class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <p id="changePwdErrorMsg" class="hidden text-xs font-semibold text-red-600"></p>
+
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" onclick="tutupModalUbahPassword()" 
+                        class="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        Batal
+                    </button>
+                    <button type="submit" 
+                        class="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors">
+                        Simpan Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         MODAL 3: EDIT REKAP RIWAYAT PIKET (KHUSUS ADMIN)
+         ===================================================================== -->
+    <div id="editRiwayatModal" class="no-print hidden fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 animate-fade-in">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-pastelMint text-pastelMintText">Edit Rekap Admin</span>
+                    <h3 id="editRiwayatTitle" class="text-base font-bold text-slate-900 mt-1">Edit Data Rekap Piket</h3>
+                </div>
+                <button type="button" onclick="tutupModalEditRiwayat()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <form onsubmit="simpanEditRiwayat(event)" class="space-y-4 mt-3">
+                <input type="hidden" id="editRiwayatIndex">
+                <div>
+                    <label for="editRiwayatStatus" class="block text-xs font-semibold text-slate-700 mb-1">Status Pelaksanaan Piket</label>
+                    <select id="editRiwayatStatus" class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="selesai">Selesai (Semua Tugas Terlaksana)</option>
+                        <option value="sebagian">Sebagian (50% Tugas Terlaksana)</option>
+                        <option value="belum">Belum Piket (0 Tugas Terlaksana)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="editRiwayatKeterangan" class="block text-xs font-semibold text-slate-700 mb-1">Keterangan / Catatan Laporan</label>
+                    <textarea id="editRiwayatKeterangan" rows="3" placeholder="Masukkan keterangan pelaksanaan piket..."
+                        class="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" onclick="tutupModalEditRiwayat()" 
+                        class="px-4 py-2 rounded-xl text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        Batal
+                    </button>
+                    <button type="submit" 
+                        class="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors">
+                        Simpan Perubahan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- =====================================================================
+         LOGIKA JAVASCRIPT SIPEKA
+         ===================================================================== -->
+    <script>
+        // Kunci penyimpanan LocalStorage & SessionStorage
+        const STORAGE_KEY_JADWAL = 'sipeka_xii_r7_jadwal_v2';
+        const STORAGE_KEY_RIWAYAT = 'sipeka_xii_r7_riwayat_v2';
+        const STORAGE_KEY_ADMIN_PWD = 'sipeka_xii_r7_admin_pwd_v1';
+        const SESSION_KEY_ADMIN_AUTH = 'sipeka_xii_r7_admin_logged_in';
+        const DEFAULT_ADMIN_PASSWORD = 'sipeka123';
+
+        // Data Awal Jadwal Piket (Struktur Data LKPD 2: ID jadwal, Nama siswa, Hari, Tanggal, Nama tugas, Status tugas, Keterangan)
+        const DEFAULT_JADWAL = [
+            {
+                id: 1,
+                hari: 'Senin',
+                tanggal: 'Senin, 3 November 2026',
+                petugas: ['Andi', 'Budi', 'Siti', 'Rina'],
+                tugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: true }
+                ],
+                keterangan: 'Semua petugas hadir dan kelas bersih sebelum jam pertama.'
+            },
+            {
+                id: 2,
+                hari: 'Selasa',
+                tanggal: 'Selasa, 4 November 2026',
+                petugas: ['Aiko Callista Zchrysilla', 'Araia Jati Ardani', 'Dimas Pratama', 'Nadia Putri'],
+                tugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: true }
+                ],
+                keterangan: 'Piket dilaksanakan tepat waktu saat jam pulang sekolah.'
+            },
+            {
+                id: 3,
+                hari: 'Rabu',
+                tanggal: 'Rabu, 5 November 2026',
+                petugas: ['Fillia Callysta', 'Raffi Aryo Nugroho', 'Fajar Nugraha', 'Zahra Aulia'],
+                tugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: false },
+                    { nama: 'Membuang sampah', selesai: false }
+                ],
+                keterangan: 'Sebagian tugas selesai, sisa sampah sedang dibuang.'
+            },
+            {
+                id: 4,
+                hari: 'Kamis',
+                tanggal: 'Kamis, 6 November 2026',
+                petugas: ['Ratu Khansa Aprilia', 'Salsabila Putri Damayanti', 'Bagas Saputra', 'Intan Permata'],
+                tugas: [
+                    { nama: 'Menyapu kelas', selesai: false },
+                    { nama: 'Menghapus papan tulis', selesai: false },
+                    { nama: 'Merapikan meja dan kursi', selesai: false },
+                    { nama: 'Membuang sampah', selesai: false }
+                ],
+                keterangan: ''
+            },
+            {
+                id: 5,
+                hari: 'Jumat',
+                tanggal: 'Jumat, 7 November 2026',
+                petugas: ['Sesta Revana', 'Gilang Ramadhan', 'Putri Maharani', 'Reza Pahlevi'],
+                tugas: [
+                    { nama: 'Menyapu kelas', selesai: false },
+                    { nama: 'Menghapus papan tulis', selesai: false },
+                    { nama: 'Merapikan meja dan kursi', selesai: false },
+                    { nama: 'Membuang sampah', selesai: false }
+                ],
+                keterangan: ''
+            }
+        ];
+
+        // Data Riwayat & Rekapitulasi Mingguan Realistis (Minggu Ini & Minggu Lalu) untuk Laporan ke Guru
+        const DEFAULT_RIWAYAT = [
+            // MINGGU INI (3 – 7 November 2026)
+            {
+                idJadwal: 'JDW-01',
+                minggu: 'Minggu Ini',
+                hari: 'Senin',
+                tanggal: 'Senin, 3 November 2026',
+                petugas: ['Andi', 'Budi', 'Siti', 'Rina'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: true }
+                ],
+                keterangan: 'Semua petugas hadir dan kelas bersih sebelum jam pertama.'
+            },
+            {
+                idJadwal: 'JDW-02',
+                minggu: 'Minggu Ini',
+                hari: 'Selasa',
+                tanggal: 'Selasa, 4 November 2026',
+                petugas: ['Aiko Callista Zchrysilla', 'Araia Jati Ardani', 'Dimas Pratama', 'Nadia Putri'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: true }
+                ],
+                keterangan: 'Piket dilaksanakan tepat waktu saat jam pulang sekolah.'
+            },
+            {
+                idJadwal: 'JDW-03',
+                minggu: 'Minggu Ini',
+                hari: 'Rabu',
+                tanggal: 'Rabu, 5 November 2026',
+                petugas: ['Fillia Callysta', 'Raffi Aryo Nugroho', 'Fajar Nugraha', 'Zahra Aulia'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: false },
+                    { nama: 'Membuang sampah', selesai: false }
+                ],
+                keterangan: 'Sebagian tugas selesai, menunggu pembuangan sampah ke TPS.'
+            },
+            {
+                idJadwal: 'JDW-04',
+                minggu: 'Minggu Ini',
+                hari: 'Kamis',
+                tanggal: 'Kamis, 6 November 2026',
+                petugas: ['Ratu Khansa Aprilia', 'Salsabila Putri Damayanti', 'Bagas Saputra', 'Intan Permata'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: false },
+                    { nama: 'Menghapus papan tulis', selesai: false },
+                    { nama: 'Merapikan meja dan kursi', selesai: false },
+                    { nama: 'Membuang sampah', selesai: false }
+                ],
+                keterangan: 'Menunggu jadwal pelaksanaan piket.'
+            },
+            {
+                idJadwal: 'JDW-05',
+                minggu: 'Minggu Ini',
+                hari: 'Jumat',
+                tanggal: 'Jumat, 7 November 2026',
+                petugas: ['Sesta Revana', 'Gilang Ramadhan', 'Putri Maharani', 'Reza Pahlevi'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: false },
+                    { nama: 'Menghapus papan tulis', selesai: false },
+                    { nama: 'Merapikan meja dan kursi', selesai: false },
+                    { nama: 'Membuang sampah', selesai: false }
+                ],
+                keterangan: 'Menunggu jadwal pelaksanaan piket.'
+            },
+            // MINGGU LALU (26 – 30 Oktober 2026) - Rekapan Lengkap Pekan Sebelumnya
+            {
+                idJadwal: 'JDW-01',
+                minggu: 'Minggu Lalu',
+                hari: 'Senin',
+                tanggal: 'Senin, 26 Oktober 2026',
+                petugas: ['Andi', 'Budi', 'Siti', 'Rina'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: true }
+                ],
+                keterangan: 'Lengkap, lantai kelas sudah dipel.'
+            },
+            {
+                idJadwal: 'JDW-02',
+                minggu: 'Minggu Lalu',
+                hari: 'Selasa',
+                tanggal: 'Selasa, 27 Oktober 2026',
+                petugas: ['Aiko Callista Zchrysilla', 'Araia Jati Ardani', 'Dimas Pratama', 'Nadia Putri'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: true }
+                ],
+                keterangan: 'Terlaksana dengan baik dan tertib.'
+            },
+            {
+                idJadwal: 'JDW-03',
+                minggu: 'Minggu Lalu',
+                hari: 'Rabu',
+                tanggal: 'Rabu, 28 Oktober 2026',
+                petugas: ['Fillia Callysta', 'Raffi Aryo Nugroho', 'Fajar Nugraha', 'Zahra Aulia'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: true }
+                ],
+                keterangan: 'Semua petugas hadir lengkap.'
+            },
+            {
+                idJadwal: 'JDW-04',
+                minggu: 'Minggu Lalu',
+                hari: 'Kamis',
+                tanggal: 'Kamis, 29 Oktober 2026',
+                petugas: ['Ratu Khansa Aprilia', 'Salsabila Putri Damayanti', 'Bagas Saputra', 'Intan Permata'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: false }
+                ],
+                keterangan: 'Tempat sampah penuh, dibuang keesokan paginya.'
+            },
+            {
+                idJadwal: 'JDW-05',
+                minggu: 'Minggu Lalu',
+                hari: 'Jumat',
+                tanggal: 'Jumat, 30 Oktober 2026',
+                petugas: ['Sesta Revana', 'Gilang Ramadhan', 'Putri Maharani', 'Reza Pahlevi'],
+                daftarTugas: [
+                    { nama: 'Menyapu kelas', selesai: true },
+                    { nama: 'Menghapus papan tulis', selesai: true },
+                    { nama: 'Merapikan meja dan kursi', selesai: true },
+                    { nama: 'Membuang sampah', selesai: true }
+                ],
+                keterangan: 'Jumat bersih terlaksana tuntas.'
+            }
+        ];
+
+        // State Aplikasi
+        let jadwalData = [];
+        let riwayatData = [];
+        let selectedHari = 'Senin';
+        let isAdminLoggedIn = false; // Default false (Mode Siswa)
+        let modalCallback = null;
+
+        // Inisialisasi saat halaman selesai dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            muatDataDariStorage();
+            cekSesiAdmin();
+            renderDaySelector();
+            renderBeranda();
+            renderJadwalMingguan();
+            renderRiwayat();
+        });
+
+        // Cek status login admin dari sessionStorage
+        function cekSesiAdmin() {
+            try {
+                isAdminLoggedIn = sessionStorage.getItem(SESSION_KEY_ADMIN_AUTH) === 'true';
+            } catch (e) {
+                isAdminLoggedIn = false;
+            }
+            perbaruiTampilanPeran();
+        }
+
+        function getAdminPassword() {
+            try {
+                return localStorage.getItem(STORAGE_KEY_ADMIN_PWD) || DEFAULT_ADMIN_PASSWORD;
+            } catch (e) {
+                return DEFAULT_ADMIN_PASSWORD;
+            }
+        }
+
+        // Fungsi memuat data dari LocalStorage
+        function muatDataDariStorage() {
+            try {
+                const savedJadwal = localStorage.getItem(STORAGE_KEY_JADWAL);
+                const savedRiwayat = localStorage.getItem(STORAGE_KEY_RIWAYAT);
+
+                if (savedJadwal) {
+                    jadwalData = JSON.parse(savedJadwal);
+                } else {
+                    jadwalData = JSON.parse(JSON.stringify(DEFAULT_JADWAL));
+                    simpanJadwalKeStorage();
+                }
+
+                if (savedRiwayat) {
+                    riwayatData = JSON.parse(savedRiwayat);
+                } else {
+                    riwayatData = JSON.parse(JSON.stringify(DEFAULT_RIWAYAT));
+                    simpanRiwayatKeStorage();
+                }
+            } catch (e) {
+                console.error('Gagal membaca penyimpanan lokal:', e);
+                jadwalData = JSON.parse(JSON.stringify(DEFAULT_JADWAL));
+                riwayatData = JSON.parse(JSON.stringify(DEFAULT_RIWAYAT));
+            }
+        }
+
+        function simpanJadwalKeStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY_JADWAL, JSON.stringify(jadwalData));
+            } catch (e) {
+                tampilkanNotifikasi('Gagal menyimpan data ke browser.', 'error');
+            }
+        }
+
+        function simpanRiwayatKeStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY_RIWAYAT, JSON.stringify(riwayatData));
+            } catch (e) {
+                console.error('Gagal menyimpan riwayat:', e);
+            }
+        }
+
+        // =====================================================================
+        // SISTEM AUTENTIKASI MODE ADMIN (KETUA KELAS) DENGAN PASSWORD
+        // =====================================================================
+        function bukaModalLoginAdmin() {
+            const modal = document.getElementById('adminLoginModal');
+            const input = document.getElementById('inputAdminPassword');
+            const errMsg = document.getElementById('loginErrorMsg');
+
+            input.value = '';
+            errMsg.classList.add('hidden');
+            modal.classList.remove('hidden');
+            setTimeout(() => input.focus(), 80);
+        }
+
+        function tutupModalLoginAdmin() {
+            document.getElementById('adminLoginModal').classList.add('hidden');
+        }
+
+        function toggleVisibilityPassword(inputId) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        function prosesLoginAdmin(event) {
+            event.preventDefault();
+            const input = document.getElementById('inputAdminPassword');
+            const loginBox = document.getElementById('adminLoginBox');
+            const errMsg = document.getElementById('loginErrorMsg');
+            const enteredPwd = input.value.trim();
+            const validPwd = getAdminPassword();
+
+            // Mendukung password yang tersimpan (default: sipeka123) atau admin123 jika belum diubah
+            const isDefaultFallback = (validPwd === DEFAULT_ADMIN_PASSWORD && enteredPwd === 'admin123');
+
+            if (enteredPwd === validPwd || isDefaultFallback) {
+                isAdminLoggedIn = true;
+                try {
+                    sessionStorage.setItem(SESSION_KEY_ADMIN_AUTH, 'true');
+                } catch (e) {}
+
+                errMsg.classList.add('hidden');
+                tutupModalLoginAdmin();
+                perbaruiTampilanPeran();
+                renderRiwayat();
+                tampilkanNotifikasi('Berhasil masuk ke Mode Admin (Ketua Kelas)', 'success');
+            } else {
+                errMsg.classList.remove('hidden');
+                loginBox.classList.remove('animate-shake');
+                void loginBox.offsetWidth; // trigger reflow untuk mengulang animasi getar
+                loginBox.classList.add('animate-shake');
+                input.focus();
+                input.select();
+            }
+        }
+
+        function logoutAdmin() {
+            isAdminLoggedIn = false;
+            try {
+                sessionStorage.removeItem(SESSION_KEY_ADMIN_AUTH);
+            } catch (e) {}
+
+            perbaruiTampilanPeran();
+            renderRiwayat();
+            tampilkanNotifikasi('Anda telah keluar dari Mode Admin. Kembali ke Mode Siswa.', 'info');
+        }
+
+        // Memperbarui seluruh elemen UI sesuai status Mode Siswa vs Mode Admin
+        function perbaruiTampilanPeran() {
+            const studentControls = document.getElementById('studentRoleControls');
+            const adminControls = document.getElementById('adminRoleControls');
+            const panelKelola = document.getElementById('panelKelolaJadwal');
+            const infoSiswa = document.getElementById('infoAksesSiswa');
+            const btnHapusRiwayat = document.getElementById('btnHapusRiwayat');
+            const thAksiAdmin = document.getElementById('thAksiAdmin');
+            const adminRiwayatNotice = document.getElementById('adminRiwayatNotice');
+
+            if (isAdminLoggedIn) {
+                studentControls.classList.add('hidden');
+                adminControls.classList.remove('hidden');
+                adminControls.classList.add('flex');
+
+                panelKelola.classList.remove('hidden');
+                infoSiswa.classList.add('hidden');
+                btnHapusRiwayat.classList.remove('hidden');
+                thAksiAdmin.classList.remove('hidden');
+                adminRiwayatNotice.classList.remove('hidden');
+                muatDataFormEdit();
+            } else {
+                studentControls.classList.remove('hidden');
+                adminControls.classList.add('hidden');
+                adminControls.classList.remove('flex');
+
+                panelKelola.classList.add('hidden');
+                infoSiswa.classList.remove('hidden');
+                btnHapusRiwayat.classList.add('hidden');
+                thAksiAdmin.classList.add('hidden');
+                adminRiwayatNotice.classList.add('hidden');
+            }
+        }
+
+        // Fitur Ubah Password Admin
+        function bukaModalUbahPassword() {
+            if (!isAdminLoggedIn) return;
+            document.getElementById('oldPasswordInput').value = '';
+            document.getElementById('newPasswordInput').value = '';
+            document.getElementById('confirmNewPasswordInput').value = '';
+            document.getElementById('changePwdErrorMsg').classList.add('hidden');
+            document.getElementById('changePasswordModal').classList.remove('hidden');
+        }
+
+        function tutupModalUbahPassword() {
+            document.getElementById('changePasswordModal').classList.add('hidden');
+        }
+
+        function prosesUbahPassword(event) {
+            event.preventDefault();
+            const oldPwd = document.getElementById('oldPasswordInput').value.trim();
+            const newPwd = document.getElementById('newPasswordInput').value.trim();
+            const confirmPwd = document.getElementById('confirmNewPasswordInput').value.trim();
+            const errEl = document.getElementById('changePwdErrorMsg');
+
+            const currentPwd = getAdminPassword();
+            const isOldValid = (oldPwd === currentPwd) || (currentPwd === DEFAULT_ADMIN_PASSWORD && oldPwd === 'admin123');
+
+            if (!isOldValid) {
+                errEl.textContent = 'Password lama tidak sesuai!';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            if (newPwd.length < 4) {
+                errEl.textContent = 'Password baru minimal terdiri dari 4 karakter.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            if (newPwd !== confirmPwd) {
+                errEl.textContent = 'Konfirmasi password baru tidak cocok!';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                localStorage.setItem(STORAGE_KEY_ADMIN_PWD, newPwd);
+                tutupModalUbahPassword();
+                tampilkanNotifikasi('Password Mode Admin berhasil diperbarui!', 'success');
+            } catch (e) {
+                errEl.textContent = 'Gagal menyimpan password baru.';
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        // Navigasi antar Tab Layar (Beranda, Jadwal Piket, Riwayat & Rekap)
+        function switchTab(tabName) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all';
+            });
+
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.className = 'tab-btn flex flex-col sm:flex-row items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all bg-pastelBlue text-pastelBlueText';
+
+            if (tabName === 'beranda') renderBeranda();
+            if (tabName === 'jadwal') renderJadwalMingguan();
+            if (tabName === 'riwayat') renderRiwayat();
+        }
+
+        // Render Tombol Pilihan Hari di Layar Beranda
+        function renderDaySelector() {
+            const container = document.getElementById('daySelectorButtons');
+            const hariList = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+            container.innerHTML = hariList.map(hari => {
+                const isActive = hari === selectedHari;
+                const activeClass = isActive 
+                    ? 'bg-pastelBlue text-pastelBlueText font-bold border-blue-200 shadow-2xs' 
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border-slate-200/80 font-medium';
+                return `
+                    <button type="button" onclick="pilihHari('${hari}')" 
+                        class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm border transition-all ${activeClass}">
+                        ${hari}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function pilihHari(hari) {
+            selectedHari = hari;
+            renderDaySelector();
+            renderBeranda();
+        }
+
+        // Render Layar Utama: Jadwal Piket Hari Ini & Daftar Tugas (Sesuai Wireframe)
+        function renderBeranda() {
+            const dataHari = jadwalData.find(item => item.hari === selectedHari);
+            if (!dataHari) return;
+
+            document.getElementById('displayTanggal').textContent = dataHari.tanggal;
+            document.getElementById('inputKeterangan').value = dataHari.keterangan || '';
+
+            // Render Daftar Nama Petugas
+            const listPetugas = document.getElementById('listPetugasHariIni');
+            listPetugas.innerHTML = dataHari.petugas.map(nama => `
+                <li class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200/70">
+                    <span class="w-2 h-2 rounded-full bg-slate-800 shrink-0"></span>
+                    <span class="text-sm sm:text-base font-medium text-slate-800">${escapeHTML(nama)}</span>
+                </li>
+            `).join('');
+
+            // Render Checklist Tugas Kebersihan
+            const listTugas = document.getElementById('listTugasHariIni');
+            listTugas.innerHTML = dataHari.tugas.map((tugas, index) => `
+                <label class="flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none ${
+                    tugas.selesai 
+                    ? 'bg-pastelMint/50 border-emerald-200 text-slate-700' 
+                    : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
+                }">
+                    <div class="flex items-center gap-3.5">
+                        <input type="checkbox" ${tugas.selesai ? 'checked' : ''} onchange="toggleStatusTugas(${index})"
+                            class="w-5 h-5 rounded-md accent-emerald-700 cursor-pointer">
+                        <span class="text-sm sm:text-base font-medium ${tugas.selesai ? 'line-through text-slate-500' : 'text-slate-800'}">
+                            ${escapeHTML(tugas.nama)}
+                        </span>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${
+                        tugas.selesai 
+                        ? 'bg-pastelMint text-pastelMintText' 
+                        : 'bg-slate-100 text-slate-500'
+                    }">
+                        ${tugas.selesai ? 'Selesai' : 'Belum'}
+                    </span>
+                </label>
+            `).join('');
+
+            // Hitung Progres Tugas
+            const jumlahSelesai = dataHari.tugas.filter(t => t.selesai).length;
+            const totalTugas = dataHari.tugas.length;
+            document.getElementById('progressCounter').textContent = `${jumlahSelesai} / ${totalTugas} Selesai`;
+
+            const badgeHari = document.getElementById('badgeStatusHari');
+            if (totalTugas > 0 && jumlahSelesai === totalTugas) {
+                badgeHari.textContent = 'Selesai';
+                badgeHari.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-pastelMint text-pastelMintText';
+            } else if (jumlahSelesai > 0) {
+                badgeHari.textContent = 'Sebagian';
+                badgeHari.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-pastelAmber text-pastelAmberText';
+            } else {
+                badgeHari.textContent = 'Belum Piket';
+                badgeHari.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-pastelPeach text-pastelPeachText';
+            }
+        }
+
+        // Sinkronisasi otomatis perubahan checklist/status ke tabel Rekap Mingguan ("Minggu Ini")
+        function sinkronkanKeRekapMingguIni(dataHari) {
+            const idFormatted = `JDW-0${dataHari.id}`;
+            const existingIdx = riwayatData.findIndex(r => r.minggu === 'Minggu Ini' && r.hari === dataHari.hari);
+
+            const selesaiCount = dataHari.tugas.filter(t => t.selesai).length;
+            let defaultKet = dataHari.keterangan.trim();
+            if (!defaultKet) {
+                if (selesaiCount === dataHari.tugas.length && dataHari.tugas.length > 0) {
+                    defaultKet = 'Seluruh tugas kebersihan kelas telah dilaksanakan.';
+                } else if (selesaiCount > 0) {
+                    defaultKet = `Sebagian tugas (${selesaiCount}/${dataHari.tugas.length}) telah dikerjakan.`;
+                } else {
+                    defaultKet = 'Menunggu pelaksanaan piket.';
+                }
+            }
+
+            const recordBaru = {
+                idJadwal: idFormatted,
+                minggu: 'Minggu Ini',
+                hari: dataHari.hari,
+                tanggal: dataHari.tanggal,
+                petugas: [...dataHari.petugas],
+                daftarTugas: dataHari.tugas.map(t => ({ nama: t.nama, selesai: t.selesai })),
+                keterangan: defaultKet
+            };
+
+            if (existingIdx !== -1) {
+                riwayatData[existingIdx] = recordBaru;
+            } else {
+                riwayatData.unshift(recordBaru);
+            }
+            simpanRiwayatKeStorage();
+        }
+
+        // Mengubah status satu tugas melalui checklist (Flowchart LKPD 2)
+        function toggleStatusTugas(index) {
+            const dataHari = jadwalData.find(item => item.hari === selectedHari);
+            if (!dataHari) return;
+
+            dataHari.tugas[index].selesai = !dataHari.tugas[index].selesai;
+            const catatanInput = document.getElementById('inputKeterangan').value.trim();
+            if (catatanInput) dataHari.keterangan = catatanInput;
+
+            simpanJadwalKeStorage();
+            sinkronkanKeRekapMingguIni(dataHari);
+            renderBeranda();
+        }
+
+        // Aksi Tombol Utama "Tandai Tugas Selesai" (Flowchart & Tabel Aksi Layar LKPD 2)
+        function tandaiSemuaSelesai() {
+            const dataHari = jadwalData.find(item => item.hari === selectedHari);
+            if (!dataHari) return;
+
+            dataHari.tugas.forEach(t => t.selesai = true);
+            const catatanInput = document.getElementById('inputKeterangan').value.trim();
+            dataHari.keterangan = catatanInput || 'Seluruh tugas kebersihan selesai dilaksanakan.';
+
+            simpanJadwalKeStorage();
+            sinkronkanKeRekapMingguIni(dataHari);
+            renderBeranda();
+            renderRiwayat();
+
+            // Umpan balik sesuai Tabel Langkah 3 LKPD 2: "Tugas berhasil diselesaikan."
+            tampilkanNotifikasi(`Tugas piket hari ${dataHari.hari} selesai & masuk ke Rekap Mingguan!`, 'success');
+        }
+
+        function resetTugasHariIni() {
+            const dataHari = jadwalData.find(item => item.hari === selectedHari);
+            if (!dataHari) return;
+
+            dataHari.tugas.forEach(t => t.selesai = false);
+            dataHari.keterangan = '';
+            simpanJadwalKeStorage();
+            sinkronkanKeRekapMingguIni(dataHari);
+            renderBeranda();
+            renderRiwayat();
+            tampilkanNotifikasi(`Status tugas hari ${dataHari.hari} diatur ulang menjadi Belum Piket.`, 'info');
+        }
+
+        // Render Layar 2: Jadwal Piket Mingguan
+        function renderJadwalMingguan() {
+            const grid = document.getElementById('gridJadwalMingguan');
+            grid.innerHTML = jadwalData.map(item => {
+                const selesaiCount = item.tugas.filter(t => t.selesai).length;
+                const isDone = selesaiCount === item.tugas.length && item.tugas.length > 0;
+
+                return `
+                    <div class="rounded-2xl border border-slate-200/90 p-5 bg-slate-50/50 hover:bg-white transition-all flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <span class="px-3 py-1 rounded-xl text-xs font-bold bg-pastelBlue text-pastelBlueText">
+                                    ${escapeHTML(item.hari)}
+                                </span>
+                                <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                                    isDone ? 'bg-pastelMint text-pastelMintText' : 'bg-slate-200/70 text-slate-600'
+                                }">
+                                    ${selesaiCount}/${item.tugas.length} Tugas
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-500 mb-3">${escapeHTML(item.tanggal)}</p>
+
+                            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Petugas:</p>
+                            <ul class="space-y-1 mb-4">
+                                ${item.petugas.map(p => `
+                                    <li class="text-sm text-slate-800 flex items-center gap-2">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                        <span>${escapeHTML(p)}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+
+                        <button type="button" onclick="bukaHariDariJadwal('${item.hari}')" 
+                            class="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-white hover:bg-pastelBlue text-slate-700 hover:text-pastelBlueText border border-slate-200 transition-colors">
+                            Lihat Checklist ${escapeHTML(item.hari)} &rarr;
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function bukaHariDariJadwal(hari) {
+            selectedHari = hari;
+            renderDaySelector();
+            switchTab('beranda');
+        }
+
+        // Pengelolaan Jadwal oleh Ketua Kelas (Validasi Input sesuai Aktivitas 4 Langkah 2 LKPD 2)
+        function muatDataFormEdit() {
+            const hariDipilih = document.getElementById('editHari').value;
+            const item = jadwalData.find(j => j.hari === hariDipilih);
+            if (!item) return;
+
+            document.getElementById('editTanggal').value = item.tanggal;
+            document.getElementById('editPetugas').value = item.petugas.join(', ');
+            document.getElementById('editTugas').value = item.tugas.map(t => t.nama).join(', ');
+        }
+
+        function simpanPerubahanJadwal(event) {
+            event.preventDefault();
+
+            if (!isAdminLoggedIn) {
+                tampilkanNotifikasi('Akses ditolak! Masuk ke Mode Admin terlebih dahulu untuk mengubah jadwal.', 'error');
+                return;
+            }
+
+            const hari = document.getElementById('editHari').value;
+            const tanggal = document.getElementById('editTanggal').value.trim();
+            const petugasRaw = document.getElementById('editPetugas').value.trim();
+            const tugasRaw = document.getElementById('editTugas').value.trim();
+
+            if (!tanggal || !petugasRaw || !tugasRaw) {
+                tampilkanNotifikasi('Data tidak boleh kosong! Lengkapi tanggal, petugas, dan daftar tugas.', 'error');
+                return;
+            }
+
+            const petugasArray = petugasRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            const tugasArray = tugasRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+            if (petugasArray.length === 0 || tugasArray.length === 0) {
+                tampilkanNotifikasi('Masukkan minimal satu nama petugas dan satu tugas piket.', 'error');
+                return;
+            }
+
+            const targetIndex = jadwalData.findIndex(j => j.hari === hari);
+            if (targetIndex !== -1) {
+                jadwalData[targetIndex].tanggal = tanggal;
+                jadwalData[targetIndex].petugas = petugasArray;
+                jadwalData[targetIndex].tugas = tugasArray.map(namaTugas => ({
+                    nama: namaTugas,
+                    selesai: false
+                }));
+
+                simpanJadwalKeStorage();
+                sinkronkanKeRekapMingguIni(jadwalData[targetIndex]);
+                renderJadwalMingguan();
+                renderRiwayat();
+                if (selectedHari === hari) renderBeranda();
+                tampilkanNotifikasi(`Jadwal piket hari ${hari} berhasil diperbarui!`, 'success');
+            }
+        }
+
+        // =====================================================================
+        // RENDER LAYAR 3: RIWAYAT & REKAPITULASI PIKET MINGGUAN (LAPORAN GURU)
+        // =====================================================================
+        function getFilteredRiwayat() {
+            const filterMinggu = document.getElementById('filterMinggu').value;
+            const filterHari = document.getElementById('filterHari').value;
+
+            return riwayatData.filter(item => {
+                const matchMinggu = (filterMinggu === 'Semua') || (item.minggu === filterMinggu);
+                const matchHari = (filterHari === 'Semua') || (item.hari === filterHari);
+                return matchMinggu && matchHari;
+            });
+        }
+
+        function renderRiwayat() {
+            const tbody = document.getElementById('tabelRekapBody');
+            const filterMinggu = document.getElementById('filterMinggu').value;
+            const dataTersaring = getFilteredRiwayat();
+
+            // Perbarui subjudul periode pada Kop Cetak PDF
+            const printSubtitle = document.getElementById('printSubtitlePeriode');
+            if (printSubtitle) {
+                printSubtitle.textContent = `Periode Laporan: ${filterMinggu === 'Semua' ? 'Seluruh Minggu Tercatat (Okt – Nov 2026)' : filterMinggu}`;
+            }
+
+            // Hitung Ringkasan Statistik Mingguan
+            let totalHariTercatat = 0;
+            let totalTugasSelesai = 0;
+            let totalSemuaTugas = 0;
+
+            dataTersaring.forEach(item => {
+                const selesai = item.daftarTugas.filter(t => t.selesai).length;
+                const total = item.daftarTugas.length;
+                if (selesai > 0) totalHariTercatat++;
+                totalTugasSelesai += selesai;
+                totalSemuaTugas += total;
+            });
+
+            const persentase = totalSemuaTugas > 0 ? Math.round((totalTugasSelesai / totalSemuaTugas) * 100) : 0;
+
+            document.getElementById('statHariTercatat').textContent = `${totalHariTercatat} / ${dataTersaring.length} Hari`;
+            document.getElementById('statTugasSelesai').textContent = `${totalTugasSelesai} / ${totalSemuaTugas} Tugas`;
+            document.getElementById('statPersentase').textContent = `${persentase}%`;
+
+            const statStatusEl = document.getElementById('statStatusLaporan');
+            if (persentase >= 80) {
+                statStatusEl.textContent = 'Sangat Baik (Siap Lapor)';
+                statStatusEl.className = 'text-xs sm:text-sm font-bold text-emerald-700 mt-1.5';
+            } else if (persentase >= 40) {
+                statStatusEl.textContent = 'Berjalan (Sebagian)';
+                statStatusEl.className = 'text-xs sm:text-sm font-bold text-amber-700 mt-1.5';
+            } else {
+                statStatusEl.textContent = 'Perlu Pemantauan';
+                statStatusEl.className = 'text-xs sm:text-sm font-bold text-red-700 mt-1.5';
+            }
+
+            // Render Baris Tabel Rekapitulasi Mingguan
+            const colSpanCount = isAdminLoggedIn ? 7 : 6;
+            if (dataTersaring.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="${colSpanCount}" class="py-10 px-4 text-center text-slate-500">
+                            Tidak ada data rekap piket yang sesuai dengan filter yang dipilih.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = dataTersaring.map((item, idx) => {
+                // Cari indeks asli di array riwayatData agar aksi edit/hapus admin akurat
+                const realIndex = riwayatData.indexOf(item);
+                const selesaiCount = item.daftarTugas.filter(t => t.selesai).length;
+                const totalCount = item.daftarTugas.length;
+
+                // Penentuan Badge Status (Hijau Selesai, Kuning Sebagian, Merah Belum Piket)
+                let badgeText = 'Belum Piket';
+                let badgeClass = 'bg-pastelPeach text-pastelPeachText border border-red-200';
+                if (totalCount > 0 && selesaiCount === totalCount) {
+                    badgeText = 'Selesai';
+                    badgeClass = 'bg-pastelMint text-pastelMintText border border-emerald-200';
+                } else if (selesaiCount > 0) {
+                    badgeText = 'Sebagian';
+                    badgeClass = 'bg-pastelAmber text-pastelAmberText border border-amber-200';
+                }
+
+                // Rincian tugas dengan ikon centang/silang kecil
+                const detailTugasHTML = item.daftarTugas.map(t => `
+                    <span class="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md mr-1 mb-1 ${
+                        t.selesai ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/70' : 'bg-slate-100 text-slate-500 border border-slate-200/70'
+                    }">
+                        <span>${t.selesai ? '✓' : '○'}</span>
+                        <span>${escapeHTML(t.nama)}</span>
+                    </span>
+                `).join('');
+
+                // Kolom Aksi Khusus Admin (Hanya dirender jika isAdminLoggedIn === true)
+                const aksiAdminTD = isAdminLoggedIn ? `
+                    <td class="no-print py-3.5 px-3 text-center">
+                        <div class="flex flex-col gap-1.5 items-center">
+                            <button type="button" onclick="bukaModalEditRiwayat(${realIndex})" 
+                                class="w-full px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-colors">
+                                Edit
+                            </button>
+                            <button type="button" onclick="hapusBarisRiwayat(${realIndex})" 
+                                class="w-full px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 transition-colors">
+                                Hapus
+                            </button>
+                        </div>
+                    </td>
+                ` : '';
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition-colors align-top">
+                        <td class="py-3.5 px-3.5 text-center font-semibold text-slate-700">
+                            <div>${idx + 1}</div>
+                            <div class="text-[10px] font-mono text-slate-400">${escapeHTML(item.idJadwal)}</div>
+                        </td>
+                        <td class="py-3.5 px-3.5">
+                            <div class="font-bold text-slate-900">${escapeHTML(item.hari)}</div>
+                            <div class="text-xs text-slate-500 mt-0.5">${escapeHTML(item.tanggal)}</div>
+                            <span class="no-print inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                                ${escapeHTML(item.minggu)}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-3.5">
+                            <ul class="space-y-0.5 text-xs text-slate-700">
+                                ${item.petugas.map(p => `<li>&bull; ${escapeHTML(p)}</li>`).join('')}
+                            </ul>
+                        </td>
+                        <td class="py-3.5 px-3.5">
+                            <div class="font-bold text-xs text-slate-800 mb-1.5">
+                                ${selesaiCount}/${totalCount} Tugas Terlaksana
+                            </div>
+                            <div class="flex flex-wrap">
+                                ${detailTugasHTML}
+                            </div>
+                        </td>
+                        <td class="py-3.5 px-3.5 text-center">
+                            <span class="print-badge inline-block px-2.5 py-1 rounded-full text-xs font-bold ${badgeClass}">
+                                ${badgeText}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-3.5 text-xs text-slate-600 leading-relaxed">
+                            ${escapeHTML(item.keterangan)}
+                        </td>
+                        ${aksiAdminTD}
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Aksi Edit & Hapus Baris Riwayat (Khusus Mode Admin)
+        function bukaModalEditRiwayat(realIndex) {
+            if (!isAdminLoggedIn || realIndex < 0 || !riwayatData[realIndex]) return;
+            const item = riwayatData[realIndex];
+
+            document.getElementById('editRiwayatIndex').value = realIndex;
+            document.getElementById('editRiwayatTitle').textContent = `Edit Rekap: ${item.tanggal}`;
+
+            const selesaiCount = item.daftarTugas.filter(t => t.selesai).length;
+            const totalCount = item.daftarTugas.length;
+            let statusVal = 'belum';
+            if (selesaiCount === totalCount && totalCount > 0) statusVal = 'selesai';
+            else if (selesaiCount > 0) statusVal = 'sebagian';
+
+            document.getElementById('editRiwayatStatus').value = statusVal;
+            document.getElementById('editRiwayatKeterangan').value = item.keterangan || '';
+            document.getElementById('editRiwayatModal').classList.remove('hidden');
+        }
+
+        function tutupModalEditRiwayat() {
+            document.getElementById('editRiwayatModal').classList.add('hidden');
+        }
+
+        function simpanEditRiwayat(event) {
+            event.preventDefault();
+            if (!isAdminLoggedIn) return;
+
+            const realIndex = parseInt(document.getElementById('editRiwayatIndex').value, 10);
+            if (isNaN(realIndex) || !riwayatData[realIndex]) return;
+
+            const statusVal = document.getElementById('editRiwayatStatus').value;
+            const keteranganBaru = document.getElementById('editRiwayatKeterangan').value.trim();
+            const item = riwayatData[realIndex];
+
+            if (statusVal === 'selesai') {
+                item.daftarTugas.forEach(t => t.selesai = true);
+            } else if (statusVal === 'belum') {
+                item.daftarTugas.forEach(t => t.selesai = false);
+            } else if (statusVal === 'sebagian') {
+                const half = Math.max(1, Math.floor(item.daftarTugas.length / 2));
+                item.daftarTugas.forEach((t, i) => t.selesai = i < half);
+            }
+
+            item.keterangan = keteranganBaru || 'Diperbarui oleh Admin (Ketua Kelas).';
+            simpanRiwayatKeStorage();
+            tutupModalEditRiwayat();
+            renderRiwayat();
+            tampilkanNotifikasi(`Data rekap hari ${item.hari} berhasil diperbarui.`, 'success');
+        }
+
+        function hapusBarisRiwayat(realIndex) {
+            if (!isAdminLoggedIn || realIndex < 0 || !riwayatData[realIndex]) return;
+            const item = riwayatData[realIndex];
+
+            bukaModal(
+                'Hapus Data Riwayat?',
+                `Yakin ingin menghapus catatan rekap piket untuk ${item.tanggal}?`,
+                () => {
+                    riwayatData.splice(realIndex, 1);
+                    simpanRiwayatKeStorage();
+                    renderRiwayat();
+                    tampilkanNotifikasi(`Data rekap ${item.tanggal} telah dihapus.`, 'info');
+                }
+            );
+        }
+
+        // Aksi Cetak / Simpan Laporan ke PDF
+        function cetakLaporanPDF() {
+            tampilkanNotifikasi('Menyiapkan tampilan cetak laporan PDF...', 'info');
+            setTimeout(() => {
+                window.print();
+            }, 300);
+        }
+
+        // Aksi Salin Rekapitulasi Mingguan ke WhatsApp / Teks
+        function salinRekapTeks() {
+            const filterMinggu = document.getElementById('filterMinggu').value;
+            const dataTersaring = getFilteredRiwayat();
+
+            if (dataTersaring.length === 0) {
+                tampilkanNotifikasi('Tidak ada data rekap untuk disalin.', 'error');
+                return;
+            }
+
+            let teksLaporan = `*LAPORAN REKAPITULASI PIKET KELAS (SIPEKA)*\n`;
+            teksLaporan += `Kelas: XII Reguler 7 | Periode: ${filterMinggu}\n`;
+            teksLaporan += `----------------------------------------\n`;
+
+            dataTersaring.forEach((item, idx) => {
+                const selesaiCount = item.daftarTugas.filter(t => t.selesai).length;
+                const totalCount = item.daftarTugas.length;
+                const statusLabel = selesaiCount === totalCount ? 'Selesai' : (selesaiCount > 0 ? 'Sebagian' : 'Belum Piket');
+
+                teksLaporan += `${idx + 1}. *${item.tanggal}* (${statusLabel} - ${selesaiCount}/${totalCount} tugas)\n`;
+                teksLaporan += `   Petugas: ${item.petugas.join(', ')}\n`;
+                teksLaporan += `   Catatan: ${item.keterangan}\n\n`;
+            });
+
+            teksLaporan += `_Dilaporkan melalui Aplikasi SIPEKA - Kelompok 3_`;
+
+            // Menggunakan textarea sementara + document.execCommand('copy') sesuai standar lingkungan iframe
+            const tempTextarea = document.createElement('textarea');
+            tempTextarea.value = teksLaporan;
+            tempTextarea.style.position = 'fixed';
+            tempTextarea.style.left = '-9999px';
+            document.body.appendChild(tempTextarea);
+            tempTextarea.select();
+
+            try {
+                document.execCommand('copy');
+                tampilkanNotifikasi('Rekap laporan mingguan berhasil disalin! Siap ditempel ke WhatsApp.', 'success');
+            } catch (err) {
+                tampilkanNotifikasi('Gagal menyalin teks laporan.', 'error');
+            } finally {
+                document.body.removeChild(tempTextarea);
+            }
+        }
+
+        // Sistem Modal Konfirmasi & Reset Data
+        function bukaModal(judul, pesan, onConfirm) {
+            document.getElementById('modalTitle').textContent = judul;
+            document.getElementById('modalMessage').textContent = pesan;
+            modalCallback = onConfirm;
+            document.getElementById('customModal').classList.remove('hidden');
+        }
+
+        function tutupModal() {
+            document.getElementById('customModal').classList.add('hidden');
+            modalCallback = null;
+        }
+
+        document.getElementById('modalConfirmBtn').addEventListener('click', () => {
+            if (typeof modalCallback === 'function') {
+                modalCallback();
+            }
+            tutupModal();
+        });
+
+        function konfirmasiResetData() {
+            bukaModal(
+                'Kembalikan Data Awal?',
+                'Seluruh jadwal piket akan dikembalikan ke data awal kelompok (Senin–Jumat). Lanjutkan?',
+                () => {
+                    jadwalData = JSON.parse(JSON.stringify(DEFAULT_JADWAL));
+                    simpanJadwalKeStorage();
+                    muatDataFormEdit();
+                    renderBeranda();
+                    renderJadwalMingguan();
+                    tampilkanNotifikasi('Data jadwal berhasil dikembalikan ke pengaturan awal.', 'info');
+                }
+            );
+        }
+
+        function resetRiwayatContoh() {
+            bukaModal(
+                'Reset Rekapan Mingguan?',
+                'Tabel riwayat dan rekap mingguan akan dikembalikan ke data contoh awal (Minggu Ini & Minggu Lalu). Lanjutkan?',
+                () => {
+                    riwayatData = JSON.parse(JSON.stringify(DEFAULT_RIWAYAT));
+                    simpanRiwayatKeStorage();
+                    renderRiwayat();
+                    tampilkanNotifikasi('Data rekapan mingguan berhasil dikembalikan ke pengaturan awal.', 'info');
+                }
+            );
+        }
+
+        // Sistem Notifikasi Toast Ramah Pengguna
+        function tampilkanNotifikasi(pesan, tipe = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            let warnaKelas = 'bg-slate-800 text-white border-slate-700';
+            if (tipe === 'success') {
+                warnaKelas = 'bg-emerald-800 text-white border-emerald-700';
+            } else if (tipe === 'error') {
+                warnaKelas = 'bg-red-700 text-white border-red-600';
+            } else if (tipe === 'info') {
+                warnaKelas = 'bg-blue-900 text-white border-blue-800';
+            }
+
+            toast.className = `pointer-events-auto px-4 py-3 rounded-2xl shadow-lg border text-xs sm:text-sm font-medium flex items-center justify-between gap-3 animate-fade-in ${warnaKelas}`;
+            toast.innerHTML = `
+                <span>${escapeHTML(pesan)}</span>
+                <button type="button" onclick="this.parentElement.remove()" class="text-white/70 hover:text-white font-bold">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 3500);
+        }
+
+        // Fungsi keamanan untuk mencegah injeksi HTML
+        function escapeHTML(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
